@@ -2,49 +2,48 @@ import http.server
 import http.client
 import json
 
-
-OPENFDA_API_EVENT = "/drug/event.json"
-
-
 # HTTPRequestHandler class
-class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+    """ Class that manages the HTTP requests from web clients """
 
     OPENFDA_API_URL = "api.fda.gov"
     OPENFDA_API_EVENT = "/drug/event.json"
 
-    def get_events(self):
-        ###
-        # GET EVENTS
-        ##
+    def get_events(self, limit=10, query=None):
+        """ Get the <limit> events from OpenFDA using <query>"""
 
         conn = http.client.HTTPSConnection(self.OPENFDA_API_URL)
-        conn.request("GET", self.OPENFDA_API_EVENT + "?limit=10")
-        r1 = conn.getresponse()
-        print(r1.status, r1.reason)
-        # 200 OK
-        data1 = r1.read()
-        data1 = data1.decode("utf8")
-        events = data1
+        request = self.OPENFDA_API_EVENT + "?limit=" + str(limit)
+        if query is not None:
+            request += "&" + query
+        conn.request("GET", request)
+        events_search = conn.getresponse()
+        raw_data = events_search.read()
+        events = raw_data.decode("utf8")
 
         return events
 
-    def get_events_search(self, drug_search):
-        ###
-        # GET EVENTS
-        ##
 
-        conn = http.client.HTTPSConnection(self.OPENFDA_API_URL)
-        search_command = 'search=patient.drug.medicinalproduct:' + drug_search
-        conn.request("GET", self.OPENFDA_API_EVENT + "?limit=10&"+search_command)
-        r1 = conn.getresponse()
-        data1 = r1.read()
-        data1 = data1.decode("utf8")
-        event = data1
+    def get_last_events(self, limit=10):
+        """ Get the last <limit> events from OpenFDA """
 
-        return event
+        return self.get_events(limit)
 
-    def get_list_html(self, drugs):
-        drugs_html = """
+    def get_events_search_drug(self, drug, limit=10):
+        """ Search the last <limit> events from OpenFDA for drug <drug> """
+        search_command = 'search=patient.drug.medicinalproduct:' + drug
+        return self.get_events(limit, search_command)
+
+
+    def get_events_search_company(self, company, limit=10):
+        """ Search the last <limit> events from OpenFDA for company <company> """
+        search_command = 'search=companynumb:' + company
+        return self.get_events(limit, search_command)
+
+
+    def get_list_html(self, items):
+        """ Convert a python list to a HTML list """
+        html = """
         <html>
 			<head>
 				<title>OpenFDA Cool App</title>
@@ -53,19 +52,20 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                 <ul>
         """
 
-        for drug in drugs:
-            drugs_html += "<li>" + drug + "</li>\n"
+        for item in items:
+            html += "<li>" + item + "</li>\n"
 
-        drugs_html += """
+        html += """
                 </ul>
 			</body>
         </html>
         """
 
-        return drugs_html
+        return html
 
 
     def get_main_page(self):
+        """ Return the HTML with the main HTML page """
         html = """
         <html>
 			<head>
@@ -73,13 +73,19 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 			</head>
 			<body>
 				<h1>OpenFDA Client</h1>
-				<form method="get" action="receive">
-                    <input type="button">
+				<form method="get" action="listDrugs">
 					<input type="submit" value="Drug List: Send to OpenFDA"></input>
 				</form>
-				<form method="get" action="search">
+				<form method="get" action="searchDrug">
                     <input type="text" name="drug"></input>
-					<input type="submit" value="Drug Search LYRICA: Send to OpenFDA"></input>
+					<input type="submit" value="Drug Search: Send to OpenFDA"></input>
+				</form>
+				<form method="get" action="listCompanies">
+					<input type="submit" value="Company List: Send to OpenFDA"></input>
+				</form>
+				<form method="get" action="searchCompany">
+                    Company name<input type="text" name="company"></input>
+					<input type="submit" value="Company Search: Send to OpenFDA"></input>
 				</form>
 			</body>
         </html>
@@ -97,49 +103,53 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         companies = []
         for event in events:
             companies += [event['companynumb']]
+        print("Companies: ", companies)
         return companies
 
     # GET
     def do_GET(self):
 
-        main_page = False
-        is_event = False
-        is_search = False
-        if self.path == '/':
-            main_page = True
-        elif self.path == '/receive?':
-            is_event = True
-        elif 'search' in self.path:
-            is_search = True
-
-
         # Send response status code
         self.send_response(200)
 
         # Send headers
-        self.send_header('Content-type','text/html')
+        self.send_header('Content-type', 'text/html')
         self.end_headers()
 
-        # Write content as utf-8 data
         html = ''  # html string to be returned to the client
 
-        if main_page:
+        if self.path == '/':
             html = self.get_main_page()
-        elif is_event:
+        elif self.path.startswith('/listDrugs'):
             events_str = self.get_events()
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_drugs_from_events(events)
             html = self.get_list_html(drugs)
-        elif is_search:
-            # /search?drug=IBUPROFENO
+        elif 'searchDrug' in self.path:
+            # Get the companies for a drug
             drug = self.path.split("=")[1]
-            events_str = self.get_events_search(drug)
+            events_str = self.get_events_search_drug(drug)
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_companies_from_events(events)
             html = self.get_list_html(drugs)
+        elif self.path.startswith('/listCompanies'):
+            events_str = self.get_events()
+            events = json.loads(events_str)
+            events = events['results']
+            companies = self.get_companies_from_events(events)
+            html = self.get_list_html(companies)
+        elif 'searchCompany' in self.path:
+            # Get the drugs for a company
+            company = self.path.split("=")[1]
+            events_str = self.get_events_search_company(company)
+            events = json.loads(events_str)
+            events = events['results']
+            drugs = self.get_drugs_from_events(events)
+            html = self.get_list_html(drugs)
 
+        # Write content as utf-8 data
         self.wfile.write(bytes(html, "utf8"))
 
         return

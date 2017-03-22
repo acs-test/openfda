@@ -9,8 +9,8 @@ import web
 PORT = 8000
 
 
-# Handler = http.server.SimpleHTTPRequestHandler
-Handler = web.testHTTPRequestHandler
+# Class to handle the HTTP requests from web clients
+Handler = web.OpenFDAHTTPRequestHandler
 
 httpd = socketserver.TCPServer(("", PORT), Handler)
 print("serving at port", PORT)
