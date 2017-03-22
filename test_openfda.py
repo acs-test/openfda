@@ -28,14 +28,35 @@ import requests
 from html.parser import HTMLParser
 
 class OpenFDAHTMLParser(HTMLParser):
+
+    def __init__(self):
+        super().__init__()
+        self.actions_list = []
+        self.forms_number = 0
+        self.items_number = 0
+
+
     def handle_starttag(self, tag, attrs):
-        print("Encountered a start tag:", tag)
+        # print("Encountered a start tag:", tag)
+        if tag == "form":
+            self.forms_number += 1
+            for attr in attrs:
+                if attr[0] == 'action':
+                    self.actions_list.append(attr[1])
+            print(attrs)
+            print(self.actions_list)
+        elif tag == "li":
+            self.items_number += 1
+
 
     def handle_endtag(self, tag):
-        print("Encountered an end tag :", tag)
+        # print("Encountered an end tag :", tag)
+        pass
+
 
     def handle_data(self, data):
-        print("Encountered some data  :", data)
+        # print("Encountered some data  :", data)
+        pass
 
 
 class WebServer(threading.Thread):
@@ -59,6 +80,7 @@ class TestOpenFDA(unittest.TestCase):
     TEST_PORT = 8000
     TEST_DRUG = 'IBUPROFEN'
     TEST_COMPANY = 'US-PFIZER INC-2014070871'
+    TEST_ACTIONS = ['listDrugs', 'searchDrug', 'listCompanies', 'searchCompany']
 
     @classmethod
     def setUpClass(cls):
@@ -76,34 +98,48 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_web_server_init(self):
         resp = requests.get('http://localhost:' + str(self.TEST_PORT))
-        print(resp.text)
+        # print(resp.text)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
-
+        self.assertEqual(parser.forms_number, 4)
+        self.assertEqual(set(self.TEST_ACTIONS), set(parser.actions_list))
 
     def test_list_drugs(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
         url += '/listDrugs'
         resp = requests.get(url)
-        print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 10)
 
     def test_search_drug(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
         url += '/searchDrug?drug=' + self.TEST_DRUG
         resp = requests.get(url)
-        print(resp.text)
+        # print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 10)
+
 
     def test_list_companies(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
         url += '/listCompanies'
         resp = requests.get(url)
-        print(resp.text)
+        # print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 10)
+
 
     def test_search_company(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
         url += '/searchCompany?company=' + self.TEST_COMPANY
         resp = requests.get(url)
-        print(resp.text)
+        # print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 10)
 
 
 if __name__ == "__main__":
