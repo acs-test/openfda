@@ -103,7 +103,6 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         companies = []
         for event in events:
             companies += [event['companynumb']]
-        print("Companies: ", companies)
         return companies
 
     # GET
