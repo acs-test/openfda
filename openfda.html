@@ -1,0 +1,57 @@
+<!-- saved from url=(0022)http://localhost:8000/ -->
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+	<title>OpenFDA Cool App</title>
+	<style>
+		input {
+			padding: 12px 20px;
+			margin: 8px 0;
+		}
+
+		div {
+			padding: 30px 20px;
+			width: 50%
+		}
+
+		input[type=button],
+		input[type=submit],
+		input[type=reset] {
+			background-color: #4CAF50;
+			border: none;
+			color: white;
+			padding: 16px 32px;
+			text-decoration: none;
+			margin: 4px 2px;
+			cursor: pointer;
+			border-radius: 10px;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>OpenFDA Client</h1>
+	<div id='drug'>
+		<form method="get" action="http://localhost:8000/listDrugs">
+			<input type="submit" value="Drug List: Send to OpenFDA">
+		</form>
+		<form method="get" action="http://localhost:8000/searchDrug">
+			Drug name <input type="text" name="drug">
+			<input type="submit" value="Drug Search: Send to OpenFDA">
+		</form>
+	</div>
+	<div id='company'>
+		<form method="get" action="http://localhost:8000/listCompanies">
+			<input type="submit" value="Company List: Send to OpenFDA">
+		</form>
+		<form method="get" action="http://localhost:8000/searchCompany">
+			Company name <input type="text" name="company">
+			<input type="submit" value="Company Search: Send to OpenFDA">
+		</form>
+	</div>
+
+
+</body>
+
+</html>
