@@ -49,14 +49,14 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 				<title>OpenFDA Cool App</title>
 			</head>
 			<body>
-                <ul>
+                <ol>
         """
 
         for item in items:
             html += "<li>" + item + "</li>\n"
 
         html += """
-                </ul>
+                </ol>
 			</body>
         </html>
         """
@@ -98,7 +98,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         if self.path == '/':
             html = self.get_main_page()
         elif self.path.startswith('/listDrugs'):
-            events_str = self.get_events()
+            limit = self.path.split("=")[1]
+            events_str = self.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_drugs_from_events(events)
@@ -112,7 +113,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             drugs = self.get_companies_from_events(events)
             html = self.get_list_html(drugs)
         elif self.path.startswith('/listCompanies'):
-            events_str = self.get_events()
+            limit = self.path.split("=")[1]
+            events_str = self.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             companies = self.get_companies_from_events(events)
