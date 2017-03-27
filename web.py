@@ -34,12 +34,10 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         search_command = 'search=patient.drug.medicinalproduct:' + drug
         return self.get_events(limit, search_command)
 
-
     def get_events_search_company(self, company, limit=10):
         """ Search the last <limit> events from OpenFDA for company <company> """
         search_command = 'search=companynumb:' + company
         return self.get_events(limit, search_command)
-
 
     def get_list_html(self, items):
         """ Convert a python list to a HTML list """
@@ -71,6 +69,13 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return html
 
+    def get_genders_from_events(self, events):
+        genders = []
+        for event in events:
+            print(event)
+            genders += [event['patient']['patientsex']]
+        return genders
+
     def get_drugs_from_events(self, events):
         drugs = []
         for event in events:
@@ -97,6 +102,13 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         if self.path == '/':
             html = self.get_main_page()
+        elif self.path.startswith('/listGender'):
+            limit = self.path.split("=")[1]
+            events_str = self.get_events(limit)
+            events = json.loads(events_str)
+            events = events['results']
+            genders = self.get_genders_from_events(events)
+            html = self.get_list_html(genders)
         elif self.path.startswith('/listDrugs'):
             limit = self.path.split("=")[1]
             events_str = self.get_events(limit)
