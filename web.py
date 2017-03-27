@@ -66,30 +66,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def get_main_page(self):
         """ Return the HTML with the main HTML page """
-        html = """
-        <html>
-			<head>
-				<title>OpenFDA Cool App</title>
-			</head>
-			<body>
-				<h1>OpenFDA Client</h1>
-				<form method="get" action="listDrugs">
-					<input type="submit" value="Drug List: Send to OpenFDA"></input>
-				</form>
-				<form method="get" action="searchDrug">
-                    <input type="text" name="drug"></input>
-					<input type="submit" value="Drug Search: Send to OpenFDA"></input>
-				</form>
-				<form method="get" action="listCompanies">
-					<input type="submit" value="Company List: Send to OpenFDA"></input>
-				</form>
-				<form method="get" action="searchCompany">
-                    Company name<input type="text" name="company"></input>
-					<input type="submit" value="Company Search: Send to OpenFDA"></input>
-				</form>
-			</body>
-        </html>
-        """
+        with open("openfda.html") as html_file:
+            html = html_file.read()
 
         return html
 
