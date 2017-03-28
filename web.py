@@ -2,7 +2,7 @@ import http.server
 import http.client
 import json
 
-OPENFDA_BASIC = False  # Implement the basic or complete requirements
+OPENFDA_BASIC = True  # Implement the basic or complete requirements
 
 # HTTPRequestHandler class
 class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
@@ -75,6 +75,12 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return html
 
+    def get_not_found_page(self):
+        with open("not_found.html") as html_file:
+            html = html_file.read()
+
+        return html
+
     def get_genders_from_events(self, events):
         genders = []
         for event in events:
@@ -96,15 +102,9 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     # GET
     def do_GET(self):
 
-        # Send response status code
-        self.send_response(200)
-
-        # Send headers
-        self.send_header('Content-type', 'text/html')
-        self.end_headers()
-
         html = ''  # html string to be returned to the client
         limit = 10
+        url_found = True
 
         if self.path == '/':
             html = self.get_main_page()
@@ -148,6 +148,19 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             events = events['results']
             drugs = self.get_drugs_from_events(events)
             html = self.get_list_html(drugs)
+        else:
+            if not OPENFDA_BASIC:
+                url_found = False
+                html = self.get_not_found_page()
+
+        # Send response status code
+        if not url_found:
+            self.send_response(404)
+        else:
+            self.send_response(200)
+        # Send headers
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
 
         # Write content as utf-8 data
         self.wfile.write(bytes(html, "utf8"))

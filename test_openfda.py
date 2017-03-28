@@ -170,6 +170,11 @@ class TestOpenFDA(unittest.TestCase):
         parser.feed(resp.text)
         self.assertEqual(parser.items_number, 10)
 
+    def test_not_found(self):
+        url = 'http://localhost:' + str(self.TEST_PORT)
+        url += '/not_exists_resource'
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 404)
 
 if __name__ == "__main__":
     unittest.main(warnings='ignore')
