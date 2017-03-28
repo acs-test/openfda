@@ -2,6 +2,8 @@ import http.server
 import http.client
 import json
 
+OPENFDA_BASIC = False  # Implement the basic or complete requirements
+
 # HTTPRequestHandler class
 class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """ Class that manages the HTTP requests from web clients """
@@ -64,15 +66,18 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def get_main_page(self):
         """ Return the HTML with the main HTML page """
-        with open("openfda.html") as html_file:
-            html = html_file.read()
+        if OPENFDA_BASIC:
+            with open("openfda_basic.html") as html_file:
+                html = html_file.read()
+        else:
+            with open("openfda.html") as html_file:
+                html = html_file.read()
 
         return html
 
     def get_genders_from_events(self, events):
         genders = []
         for event in events:
-            print(event)
             genders += [event['patient']['patientsex']]
         return genders
 
@@ -99,18 +104,21 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         html = ''  # html string to be returned to the client
+        limit = 10
 
         if self.path == '/':
             html = self.get_main_page()
         elif self.path.startswith('/listGender'):
-            limit = self.path.split("=")[1]
+            if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
+                limit = self.path.split("=")[1]
             events_str = self.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             genders = self.get_genders_from_events(events)
             html = self.get_list_html(genders)
         elif self.path.startswith('/listDrugs'):
-            limit = self.path.split("=")[1]
+            if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
+                limit = self.path.split("=")[1]
             events_str = self.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
@@ -125,7 +133,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             drugs = self.get_companies_from_events(events)
             html = self.get_list_html(drugs)
         elif self.path.startswith('/listCompanies'):
-            limit = self.path.split("=")[1]
+            if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
+                limit = self.path.split("=")[1]
             events_str = self.get_events(limit)
             events = json.loads(events_str)
             events = events['results']

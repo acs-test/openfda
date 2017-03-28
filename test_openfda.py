@@ -35,7 +35,6 @@ class OpenFDAHTMLParser(HTMLParser):
         self.forms_number = 0
         self.items_number = 0
 
-
     def handle_starttag(self, tag, attrs):
         # print("Encountered a start tag:", tag)
         if tag == "form":
@@ -43,8 +42,6 @@ class OpenFDAHTMLParser(HTMLParser):
             for attr in attrs:
                 if attr[0] == 'action':
                     self.actions_list.append(attr[1])
-            print(attrs)
-            print(self.actions_list)
         elif tag == "li":
             self.items_number += 1
 
@@ -80,7 +77,7 @@ class TestOpenFDA(unittest.TestCase):
     TEST_PORT = 8000
     TEST_DRUG = 'IBUPROFEN'
     TEST_COMPANY = 'US-PFIZER INC-2014070871'
-    TEST_ACTIONS = ['listDrugs', 'searchDrug', 'listCompanies', 'searchCompany']
+    TEST_ACTIONS = ['listDrugs', 'searchDrug', 'listCompanies', 'searchCompany', 'listGender']
 
     @classmethod
     def setUpClass(cls):
@@ -101,16 +98,41 @@ class TestOpenFDA(unittest.TestCase):
         # print(resp.text)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
-        self.assertEqual(parser.forms_number, 4)
+        # Remove listGender that it is not in the basic specification
+        self.TEST_ACTIONS.remove('listGender')
+        try:
+            parser.actions_list.remove('listGender')
+        except ValueError:
+            # The form does not include this option
+            pass
+        self.assertEqual(len(parser.actions_list), 4)
+        self.assertEqual(set(self.TEST_ACTIONS), set(parser.actions_list))
+        self.TEST_ACTIONS.append('listGender')
+
+    def test_web_server_init_gender(self):
+        # In the complete project a listGender is included
+        resp = requests.get('http://localhost:' + str(self.TEST_PORT))
+        # print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.forms_number, 5)
         self.assertEqual(set(self.TEST_ACTIONS), set(parser.actions_list))
 
     def test_list_drugs(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listDrugs'
+        url += '/listDrugs&limit=10'
         resp = requests.get(url)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
         self.assertEqual(parser.items_number, 10)
+
+    def test_list_drugs_limit(self):
+        url = 'http://localhost:' + str(self.TEST_PORT)
+        url += '/listDrugs&limit=22'
+        resp = requests.get(url)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 22)
 
     def test_search_drug(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
@@ -121,16 +143,23 @@ class TestOpenFDA(unittest.TestCase):
         parser.feed(resp.text)
         self.assertEqual(parser.items_number, 10)
 
-
     def test_list_companies(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listCompanies'
+        url += '/listCompanies&limit=10'
         resp = requests.get(url)
         # print(resp.text)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
         self.assertEqual(parser.items_number, 10)
 
+    def test_list_gender(self):
+        url = 'http://localhost:' + str(self.TEST_PORT)
+        url += '/listGender&limit=10'
+        resp = requests.get(url)
+        # print(resp.text)
+        parser = OpenFDAHTMLParser()
+        parser.feed(resp.text)
+        self.assertEqual(parser.items_number, 10)
 
     def test_search_company(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
