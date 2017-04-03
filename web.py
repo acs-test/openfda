@@ -2,9 +2,51 @@ import http.server
 import http.client
 import json
 
-OPENFDA_BASIC = False  # Implement the basic or complete requirements
+OPENFDA_BASIC = True  # Implement the basic or complete requirements
 
-class OpenFDA(): pass
+class OpenFDAHTML():
+
+    def get_list_html(self, items):
+        """ Convert a python list to a HTML list """
+        html = """
+        <html>
+			<head>
+				<title>OpenFDA Cool App</title>
+			</head>
+			<body>
+                <ol>
+        """
+
+        for item in items:
+            html += "<li>" + item + "</li>\n"
+
+        html += """
+                </ol>
+			</body>
+        </html>
+        """
+
+        return html
+
+
+    def get_main_page(self):
+        """ Return the HTML with the main HTML page """
+        if OPENFDA_BASIC:
+            with open("openfda_basic.html") as html_file:
+                html = html_file.read()
+        else:
+            with open("openfda.html") as html_file:
+                html = html_file.read()
+
+        return html
+
+    def get_not_found_page(self):
+        with open("not_found.html") as html_file:
+            html = html_file.read()
+
+        return html
+
+
 
 class OpenFDAParser():
     def get_genders_from_events(self, events):
@@ -76,92 +118,53 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     """
 
 
-    def get_list_html(self, items):
-        """ Convert a python list to a HTML list """
-        html = """
-        <html>
-			<head>
-				<title>OpenFDA Cool App</title>
-			</head>
-			<body>
-                <ol>
-        """
-
-        for item in items:
-            html += "<li>" + item + "</li>\n"
-
-        html += """
-                </ol>
-			</body>
-        </html>
-        """
-
-        return html
-
-
-    def get_main_page(self):
-        """ Return the HTML with the main HTML page """
-        if OPENFDA_BASIC:
-            with open("openfda_basic.html") as html_file:
-                html = html_file.read()
-        else:
-            with open("openfda.html") as html_file:
-                html = html_file.read()
-
-        return html
-
-    def get_not_found_page(self):
-        with open("not_found.html") as html_file:
-            html = html_file.read()
-
-        return html
-
     # GET
     def do_GET(self):
 
-        html = ''  # html string to be returned to the client
+        html_res = ''  # html string to be returned to the client
         limit = 10
         url_found = True
 
         client = OpenFDAClient()
         parser = OpenFDAParser()
+        html = OpenFDAHTML()
 
         if self.path == '/':
-            html = self.get_main_page()
+            html_res = html.get_main_page()
         elif self.path.startswith('/listGender'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
             events = client.get_events(limit)
             genders = parser.get_genders_from_events(events)
-            html = self.get_list_html(genders)
+            html_res = html.get_list_html(genders)
         elif self.path.startswith('/listDrugs'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
             events = client.get_events(limit)
             drugs = parser.get_drugs_from_events(events)
-            html = self.get_list_html(drugs)
+            html_res = html.get_list_html(drugs)
         elif 'searchDrug' in self.path:
             # Get the companies for a drug
             drug = self.path.split("=")[1]
             events = client.get_events_search_drug(drug)
             drugs = parser.get_companies_from_events(events)
-            html = self.get_list_html(drugs)
+            html_res = html.get_list_html(drugs)
         elif self.path.startswith('/listCompanies'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
             events = client.get_events(limit)
             companies = parser.get_companies_from_events(events)
-            html = self.get_list_html(companies)
+            html_res = html.get_list_html(companies)
         elif 'searchCompany' in self.path:
             # Get the drugs for a company
             company = self.path.split("=")[1]
             events = client.get_events_search_company(company)
             drugs = parser.get_drugs_from_events(events)
-            html = self.get_list_html(drugs)
+            html_res = html.get_list_html(drugs)
         else:
             if not OPENFDA_BASIC:
                 url_found = False
-                html = self.get_not_found_page()
+                html_res = html.get_not_found_page()
 
         # Send response status code
         if not url_found:
@@ -173,6 +176,6 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
         # Write content as utf-8 data
-        self.wfile.write(bytes(html, "utf8"))
+        self.wfile.write(bytes(html_res, "utf8"))
 
         return
