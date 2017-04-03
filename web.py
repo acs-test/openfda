@@ -6,7 +6,26 @@ OPENFDA_BASIC = False  # Implement the basic or complete requirements
 
 class OpenFDA(): pass
 
-class OpenFDAParser(): pass
+class OpenFDAParser():
+    def get_genders_from_events(self, events):
+        genders = []
+        for event in events:
+            genders += [event['patient']['patientsex']]
+        return genders
+
+    def get_drugs_from_events(self, events):
+        drugs = []
+        for event in events:
+            drugs += [event['patient']['drug'][0]['medicinalproduct']]
+        return drugs
+
+    def get_companies_from_events(self, events):
+        companies = []
+        for event in events:
+            companies += [event['companynumb']]
+        return companies
+
+
 
 class OpenFDAClient():
     OPENFDA_API_URL = "api.fda.gov"
@@ -22,7 +41,9 @@ class OpenFDAClient():
         conn.request("GET", request)
         events_search = conn.getresponse()
         raw_data = events_search.read()
-        events = raw_data.decode("utf8")
+        events_str = raw_data.decode("utf8")
+        events = json.loads(events_str)
+        events = events['results']
 
         return events
 
@@ -95,24 +116,6 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return html
 
-    def get_genders_from_events(self, events):
-        genders = []
-        for event in events:
-            genders += [event['patient']['patientsex']]
-        return genders
-
-    def get_drugs_from_events(self, events):
-        drugs = []
-        for event in events:
-            drugs += [event['patient']['drug'][0]['medicinalproduct']]
-        return drugs
-
-    def get_companies_from_events(self, events):
-        companies = []
-        for event in events:
-            companies += [event['companynumb']]
-        return companies
-
     # GET
     def do_GET(self):
 
@@ -121,48 +124,39 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         url_found = True
 
         client = OpenFDAClient()
+        parser = OpenFDAParser()
 
         if self.path == '/':
             html = self.get_main_page()
         elif self.path.startswith('/listGender'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = client.get_events(limit)
-            events = json.loads(events_str)
-            events = events['results']
-            genders = self.get_genders_from_events(events)
+            events = client.get_events(limit)
+            genders = parser.get_genders_from_events(events)
             html = self.get_list_html(genders)
         elif self.path.startswith('/listDrugs'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = client.get_events(limit)
-            events = json.loads(events_str)
-            events = events['results']
-            drugs = self.get_drugs_from_events(events)
+            events = client.get_events(limit)
+            drugs = parser.get_drugs_from_events(events)
             html = self.get_list_html(drugs)
         elif 'searchDrug' in self.path:
             # Get the companies for a drug
             drug = self.path.split("=")[1]
-            events_str = client.get_events_search_drug(drug)
-            events = json.loads(events_str)
-            events = events['results']
-            drugs = self.get_companies_from_events(events)
+            events = client.get_events_search_drug(drug)
+            drugs = parser.get_companies_from_events(events)
             html = self.get_list_html(drugs)
         elif self.path.startswith('/listCompanies'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = client.get_events(limit)
-            events = json.loads(events_str)
-            events = events['results']
-            companies = self.get_companies_from_events(events)
+            events = client.get_events(limit)
+            companies = parser.get_companies_from_events(events)
             html = self.get_list_html(companies)
         elif 'searchCompany' in self.path:
             # Get the drugs for a company
             company = self.path.split("=")[1]
-            events_str = client.get_events_search_company(company)
-            events = json.loads(events_str)
-            events = events['results']
-            drugs = self.get_drugs_from_events(events)
+            events = client.get_events_search_company(company)
+            drugs = parser.get_drugs_from_events(events)
             html = self.get_list_html(drugs)
         else:
             if not OPENFDA_BASIC:
