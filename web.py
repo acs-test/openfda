@@ -2,7 +2,7 @@ import http.server
 import http.client
 import json
 
-OPENFDA_BASIC = True  # Implement the basic or complete requirements
+OPENFDA_BASIC = False  # Implement the basic or complete requirements
 
 class OpenFDAHTML():
 

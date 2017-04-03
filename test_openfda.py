@@ -120,7 +120,7 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_list_drugs(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listDrugs&limit=10'
+        url += '/listDrugs?limit=10'
         resp = requests.get(url)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
@@ -128,7 +128,7 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_list_drugs_limit(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listDrugs&limit=22'
+        url += '/listDrugs?limit=22'
         resp = requests.get(url)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
@@ -145,7 +145,7 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_list_companies(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listCompanies&limit=10'
+        url += '/listCompanies?limit=10'
         resp = requests.get(url)
         # print(resp.text)
         parser = OpenFDAHTMLParser()
@@ -154,7 +154,7 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_list_gender(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listGender&limit=10'
+        url += '/listGender?limit=10'
         resp = requests.get(url)
         # print(resp.text)
         parser = OpenFDAHTMLParser()
