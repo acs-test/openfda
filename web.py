@@ -2,12 +2,13 @@ import http.server
 import http.client
 import json
 
-OPENFDA_BASIC = True  # Implement the basic or complete requirements
+OPENFDA_BASIC = False  # Implement the basic or complete requirements
 
-# HTTPRequestHandler class
-class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
-    """ Class that manages the HTTP requests from web clients """
+class OpenFDA(): pass
 
+class OpenFDAParser(): pass
+
+class OpenFDAClient():
     OPENFDA_API_URL = "api.fda.gov"
     OPENFDA_API_EVENT = "/drug/event.json"
 
@@ -25,7 +26,6 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return events
 
-
     def get_last_events(self, limit=10):
         """ Get the last <limit> events from OpenFDA """
 
@@ -40,6 +40,20 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         """ Search the last <limit> events from OpenFDA for company <company> """
         search_command = 'search=companynumb:' + company
         return self.get_events(limit, search_command)
+
+
+# HTTPRequestHandler class
+class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+    """
+        Implements the OpenFDA HTTP API:
+        - openFDA client
+        - searchDrug
+        - listDrug
+        - searchCompany
+        - listCompanies
+        - listGender
+    """
+
 
     def get_list_html(self, items):
         """ Convert a python list to a HTML list """
@@ -106,12 +120,14 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         limit = 10
         url_found = True
 
+        client = OpenFDAClient()
+
         if self.path == '/':
             html = self.get_main_page()
         elif self.path.startswith('/listGender'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = self.get_events(limit)
+            events_str = client.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             genders = self.get_genders_from_events(events)
@@ -119,7 +135,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         elif self.path.startswith('/listDrugs'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = self.get_events(limit)
+            events_str = client.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_drugs_from_events(events)
@@ -127,7 +143,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         elif 'searchDrug' in self.path:
             # Get the companies for a drug
             drug = self.path.split("=")[1]
-            events_str = self.get_events_search_drug(drug)
+            events_str = client.get_events_search_drug(drug)
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_companies_from_events(events)
@@ -135,7 +151,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         elif self.path.startswith('/listCompanies'):
             if len(self.path.split("=")) > 1 and not OPENFDA_BASIC:
                 limit = self.path.split("=")[1]
-            events_str = self.get_events(limit)
+            events_str = client.get_events(limit)
             events = json.loads(events_str)
             events = events['results']
             companies = self.get_companies_from_events(events)
@@ -143,7 +159,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         elif 'searchCompany' in self.path:
             # Get the drugs for a company
             company = self.path.split("=")[1]
-            events_str = self.get_events_search_company(company)
+            events_str = client.get_events_search_company(company)
             events = json.loads(events_str)
             events = events['results']
             drugs = self.get_drugs_from_events(events)
