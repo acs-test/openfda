@@ -123,6 +123,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         html_res = ''  # html string to be returned to the client
         limit = 10
+        url_auth = False
         url_found = True
         url_redirect = False
 
@@ -164,6 +165,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             html_res = html.get_list_html(drugs)
         elif 'redirect' in self.path:
             url_redirect = True
+        elif 'secret' in self.path:
+            url_auth = True
         else:
             if not OPENFDA_BASIC:
                 url_found = False
@@ -175,6 +178,9 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         elif url_redirect:
             self.send_response(302)
             self.send_header('Location', 'http://localhost:8000/')
+        elif url_auth:
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm="OpenFDA Private Zone"')
         else:
             self.send_response(200)
         # Send headers

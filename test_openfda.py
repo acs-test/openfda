@@ -182,5 +182,12 @@ class TestOpenFDA(unittest.TestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 200)
 
+    def test_auth(self):
+        url = 'http://localhost:' + str(self.TEST_PORT)
+        url += '/secret'
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 401)
+
+
 if __name__ == "__main__":
     unittest.main(warnings='ignore')
