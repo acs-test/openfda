@@ -124,6 +124,7 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         html_res = ''  # html string to be returned to the client
         limit = 10
         url_found = True
+        url_redirect = False
 
         client = OpenFDAClient()
         parser = OpenFDAParser()
@@ -161,6 +162,8 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             events = client.get_events_search_company(company)
             drugs = parser.get_drugs_from_events(events)
             html_res = html.get_list_html(drugs)
+        elif 'redirect' in self.path:
+            url_redirect = True
         else:
             if not OPENFDA_BASIC:
                 url_found = False
@@ -169,6 +172,9 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         # Send response status code
         if not url_found:
             self.send_response(404)
+        elif url_redirect:
+            self.send_response(302)
+            self.send_header('Location', 'http://localhost:8000/')
         else:
             self.send_response(200)
         # Send headers

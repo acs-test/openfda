@@ -176,5 +176,11 @@ class TestOpenFDA(unittest.TestCase):
         resp = requests.get(url)
         self.assertEqual(resp.status_code, 404)
 
+    def test_redirect(self):
+        url = 'http://localhost:' + str(self.TEST_PORT)
+        url += '/redirect'
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+
 if __name__ == "__main__":
     unittest.main(warnings='ignore')
