@@ -2,7 +2,7 @@ import http.server
 import http.client
 import json
 
-OPENFDA_BASIC = False  # Implement the basic or complete requirements
+OPENFDA_BASIC = True  # Implement the basic or complete requirements
 
 class OpenFDAHTML():
 
@@ -163,9 +163,9 @@ class OpenFDAHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             events = client.get_events_search_company(company)
             drugs = parser.get_drugs_from_events(events)
             html_res = html.get_list_html(drugs)
-        elif 'redirect' in self.path:
+        elif 'redirect' in self.path and not OPENFDA_BASIC:
             url_redirect = True
-        elif 'secret' in self.path:
+        elif 'secret' in self.path and not OPENFDA_BASIC:
             url_auth = True
         else:
             if not OPENFDA_BASIC:
