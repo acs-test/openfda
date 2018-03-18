@@ -64,14 +64,16 @@ class Report():
         for login, value in Report.students_data.items():
             login_date[login] = value['last_commit_date'] if value['last_commit_date'] else ''
         login_date_list = sorted(login_date.items(), key=operator.itemgetter(1), reverse=True)
+        print("\nTop Dates\n--------")
         for entry in login_date_list:
-            print(entry[0], entry[1])
+            print(entry[0], "\t", entry[1])
 
         # List ordered by number of commits
         top_commits = {login: value['number_commits'] for (login, value) in Report.students_data.items()}
         top_commits_list = sorted(top_commits.items(), key=operator.itemgetter(1), reverse=True)
+        print("\nTop Commits\n-----------")
         for entry in top_commits_list:
-            print(entry[0], entry[1])
+            print(entry[0], "\t", entry[1])
 
     @staticmethod
     def do_report(report_file=None):
