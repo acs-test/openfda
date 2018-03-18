@@ -33,6 +33,7 @@ GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
 PRACTICES_DIRS = ['openfda1', 'openfda2']
 
+
 class Report():
     students = 0
     repos_found = 0
@@ -66,11 +67,13 @@ def get_params():
 
     return parser.parse_args()
 
+
 def send_github(url, headers=None):
-    headers = {'Authorization': 'token ' + args.token }
+    headers = {'Authorization': 'token ' + args.token}
     res = requests.get(url, headers=headers)
     res.raise_for_status()
     return res
+
 
 def check_repo(gh_login):
     """ Check is a github user has the openfda repo and it is valid"""
@@ -112,7 +115,6 @@ def check_repo(gh_login):
         Report.students_data[gh_login]['last_commit'] = last_commit_date
         print("Last commit date", last_commit_date)
 
-
         # Check number of commits from the list of contributors
         contribs_url = GITHUB_REPOS_API + "/" + gh_login + "/" + OPENFDA_REPO + "/contributors"
         res = send_github(contribs_url)
@@ -124,7 +126,6 @@ def check_repo(gh_login):
 
         Report.students_data[gh_login]['number_commits'] = commits
         print("Number of commits", commits)
-
 
         return check
 
