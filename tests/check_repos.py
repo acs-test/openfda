@@ -38,15 +38,18 @@ class Report():
     repos_found = 0
     repos_not_found = 0
     repos_not_found_students = []
-    repos_ok = 0
-    repos_ok_students = []
-    repos_ko = 0
-    repos_ko_students = []
+    repo_ok = 0
+    repo_ok_students = []
+    repo_ko = 0
+    repo_ko_students = []
+    repo_main_not_found = 0
+    repo_main_not_found_students = []
 
     @staticmethod
     def do_report():
-        print ("Total students", Report.students)
+        print("Total students", Report.students)
         print("Total repos not found", Report.repos_not_found, Report.repos_not_found_students)
+        print("Total %s no found: %i %s" % (OPENFDA_REPO, Report.repo_main_not_found, Report.repo_main_not_found_students))
 
 
 def get_params():
@@ -77,6 +80,7 @@ def check_repo(gh_login):
         check = False
 
         print("Checking", gh_repo)
+
         # Checks that practices exists
         practices_pending = list(PRACTICES_DIRS)
         res = send_github(gh_repo + "/contents")
@@ -96,13 +100,22 @@ def check_repo(gh_login):
             print("Practices not found for %s: %s" % (gh_repo, practices_pending))
             check = False
 
+        # Check last commit date: get last commit and get the date
+        commits_url = GITHUB_REPOS_API + "/" + gh_login + "/" + OPENFDA_REPO + "/commits/master"
+        res = send_github(commits_url)
+        last_commit_date = res.json()['commit']['committer']['date']
+
+        print(last_commit_date)
+
+
         # Check number of commits
-        # Check last commit date
 
         return check
 
 
-    check = False
+    check_repos = False  # Check if there are repositories
+    check_main_repo = False  # Checks for the main repository
+    check_main_repo_not_found = True  # Check if the main repository exists
 
     while True:
         try:
@@ -110,7 +123,9 @@ def check_repo(gh_login):
             page += 1  # Prepare for next page request
             res.raise_for_status()
             Report.repos_found += 1
-        except Exception:
+            check_repos = True
+        except Exception as ex:
+            print(ex)
             print("Can not find", repos_url)
             Report.repos_not_found += 1
             Report.repos_not_found_students.append(gh_login)
@@ -126,9 +141,16 @@ def check_repo(gh_login):
                 continue
             else:
                 print("Found repo %s for %s" % (repo['name'], gh_login))
-                check = do_checks(repo['url'])
+                check_main_repo_not_found = False
+                check_main_repo = do_checks(repo['url'])
+                break
 
-    return check
+    if check_main_repo_not_found:
+        print("Not found %s for %s" % (OPENFDA_REPO, gh_login))
+        Report.repo_main_not_found += 1
+        Report.repo_main_not_found_students.append(gh_login)
+
+    return check_repos and check_main_repo
 
 
 if __name__ == '__main__':
@@ -137,18 +159,17 @@ if __name__ == '__main__':
 
     fstudents = open(args.students_data)
 
-
     for name, gh_login in json.load(fstudents).items():
         Report.students += 1
         print("Checking repo for", name, gh_login)
         if not check_repo(gh_login):
             print("%s (%s) repo KO" % (name, gh_login))
-            Report.repos_ko += 1
-            Report.repos_ko_students.append(name)
+            Report.repo_ko += 1
+            Report.repo_ko_students.append(name)
         else:
             print("%s (%s) repo OK" % (name, gh_login))
-            Report.repos_ok += 1
-            Report.repos_ok_students.append(name)
+            Report.repo_ok += 1
+            Report.repo_ok_students.append(name)
 
     Report.do_report()
 
