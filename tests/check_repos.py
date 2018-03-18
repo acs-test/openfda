@@ -44,12 +44,18 @@ class Report():
     repo_ko_students = []
     repo_main_not_found = 0
     repo_main_not_found_students = []
+    students_data = {}
 
     @staticmethod
     def do_report():
         print("Total students", Report.students)
         print("Total repos not found", Report.repos_not_found, Report.repos_not_found_students)
         print("Total %s no found: %i %s" % (OPENFDA_REPO, Report.repo_main_not_found, Report.repo_main_not_found_students))
+
+        print(json.dumps(Report.students_data, indent=True, sort_keys=True))
+
+        freport = open("report.json", "w")
+        json.dump(Report.students_data, freport, indent=True, sort_keys=True)
 
 
 def get_params():
@@ -68,8 +74,6 @@ def send_github(url, headers=None):
 
 def check_repo(gh_login):
     """ Check is a github user has the openfda repo and it is valid"""
-    repos_url = GITHUB_USERS_API + "/" + gh_login + "/repos"
-    page = 1
 
     def do_checks(gh_repo):
         """
@@ -105,13 +109,27 @@ def check_repo(gh_login):
         res = send_github(commits_url)
         last_commit_date = res.json()['commit']['committer']['date']
 
-        print(last_commit_date)
+        Report.students_data[gh_login]['last_commit'] = last_commit_date
+        print("Last commit date", last_commit_date)
 
 
-        # Check number of commits
+        # Check number of commits from the list of contributors
+        contribs_url = GITHUB_REPOS_API + "/" + gh_login + "/" + OPENFDA_REPO + "/contributors"
+        res = send_github(contribs_url)
+        if len(res.json()) > 1:
+            print("A student with contributors!", contribs_url)
+        commits = 0
+        for contributor in res.json():
+            commits += int(contributor['contributions'])
+
+        Report.students_data[gh_login]['number_commits'] = commits
+        print("Number of commits", commits)
+
 
         return check
 
+    repos_url = GITHUB_USERS_API + "/" + gh_login + "/repos"
+    page = 1
 
     check_repos = False  # Check if there are repositories
     check_main_repo = False  # Checks for the main repository
@@ -141,6 +159,7 @@ def check_repo(gh_login):
                 continue
             else:
                 print("Found repo %s for %s" % (repo['name'], gh_login))
+                Report.students_data[gh_login]['url'] = repo['html_url']
                 check_main_repo_not_found = False
                 check_main_repo = do_checks(repo['url'])
                 break
@@ -161,6 +180,11 @@ if __name__ == '__main__':
 
     for name, gh_login in json.load(fstudents).items():
         Report.students += 1
+        Report.students_data[gh_login] = {
+            'last_commit': None,
+            'number_commits': 0,
+            "url": None
+        }
         print("Checking repo for", name, gh_login)
         if not check_repo(gh_login):
             print("%s (%s) repo KO" % (name, gh_login))
