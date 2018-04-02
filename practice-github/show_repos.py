@@ -3,7 +3,7 @@ import json
 
 headers = {'User-Agent': 'http-client'}
 
-conn = http.client.HTTPSConnection("api.github.com")
+conn = http.client.HTTPSConnection("api.practice-github.com")
 conn.request("GET", "/users/acs-test/repos", None, headers)
 r1 = conn.getresponse()
 print(r1.status, r1.reason)
