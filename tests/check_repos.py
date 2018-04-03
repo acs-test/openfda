@@ -35,7 +35,7 @@ import requests
 GITHUB_REPOS_API = 'https://api.github.com/repos'
 GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
-PRACTICES_DIRS = ['openfda1', 'openfda2']
+PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3']
 REPORT_FILE = 'report.json'
 
 
