@@ -35,9 +35,8 @@ import requests
 GITHUB_REPOS_API = 'https://api.github.com/repos'
 GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
-PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3']
+PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3', 'openfda-4']
 REPORT_FILE = 'report.json'
-
 
 class Report():
     students = 0
@@ -74,6 +73,14 @@ class Report():
         print("\nTop Commits\n-----------")
         for entry in top_commits_list:
             print("{0:25} {1}".format(entry[0], entry[1]))
+
+        # List ordered by number of practices
+        top_practices = {login: value['number_practices_found'] for (login, value) in Report.students_data.items()}
+        top_practices_list = sorted(top_practices.items(), key=operator.itemgetter(1), reverse=True)
+        print("\nTop Practices\n-----------")
+        for entry in top_practices_list:
+            print("{0:25} {1}".format(entry[0], entry[1]))
+
 
     @staticmethod
     def do_report(report_file=None):
@@ -143,6 +150,10 @@ def check_repo(gh_login):
         else:
             print("Practices not found for %s: %s" % (gh_repo, practices_pending))
             check = False
+
+        # Add the practices pending data
+        Report.students_data[gh_login]['practices_pending'] = practices_pending
+        Report.students_data[gh_login]['number_practices_found'] = len(PRACTICES_DIRS) - len(practices_pending)
 
         # Check last commit date: get last commit and get the date
         commits_url = GITHUB_REPOS_API + "/" + gh_login + "/" + OPENFDA_REPO + "/commits/master"
@@ -226,6 +237,9 @@ if __name__ == '__main__':
         Report.students_data[gh_login] = {
             'last_commit_date': None,
             'number_commits': 0,
+            'number_practices_found': 0,
+            'practices_pending': [],
+            'project_found': False,
             "url": None
         }
         print("Checking repo for", name, gh_login)
