@@ -9,6 +9,8 @@ socketserver.TCPServer.allow_reuse_address = True
 
 PORT = 8000
 
+OPENFDA_BASIC = False
+
 # HTTPRequestHandler class
 class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
@@ -144,6 +146,31 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return html_list
 
+    def build_html_warnings_list(self, drug_items):
+        """
+        Creates a HTML list string with the warnings in the drug_items
+
+        :param drug_items: list with the drug items
+        :return: string with the HTML list
+        """
+
+        html_list = "<ul>"
+        for drug in drug_items:
+            if 'warnings' in drug:
+                html_list += "<li>" + drug['warnings'][0]+ "</li>"
+            else:
+                html_list += "<li>None</li>"
+        html_list += "</ul>"
+
+        return html_list
+
+
+    def get_not_found_page(self):
+        with open("not_found.html") as html_file:
+            html = html_file.read()
+
+        return html
+
 
     # GET
     def do_GET(self):
@@ -154,6 +181,7 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         searchCompany?company=<company_name>
         listDrugs
         listCompanies
+        listWarnings
         """
 
         http_response_code = 200
@@ -178,7 +206,10 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             items = self.search_drugs(active_ingredient, limit)
             http_response = self.build_html_drugs_list(items)
         elif 'listDrugs' in self.path:
-            items = self.list_drugs()
+            limit = None
+            if len(self.path.split("?")) > 1:
+                limit = self.path.split("?")[1].split("=")[1]
+            items = self.list_drugs(limit)
             http_response = self.build_html_drugs_list(items)
         elif 'searchCompany' in self.path:
             company_name = None
@@ -194,17 +225,38 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             items = self.search_companies(company_name, limit)
             http_response = self.build_html_drugs_list(items)
         elif 'listCompanies' in self.path:
+            limit = None
+            if len(self.path.split("?")) > 1:
+                limit = self.path.split("?")[1].split("=")[1]
             items = self.list_drugs()
             http_response = self.build_html_companies_list(items)
+        elif 'listWarnings' in self.path:
+            limit = None
+            if len(self.path.split("?")) > 1:
+                limit = self.path.split("?")[1].split("=")[1]
+            items = self.list_drugs()
+            http_response = self.build_html_warnings_list(items)
+        elif 'secret' in self.path:
+            http_response_code = 401
+        elif 'redirect' in self.path:
+            http_response_code = 302
         else:
             http_response_code = 404
-
+            if not OPENFDA_BASIC:
+                url_found = False
+                http_response = self.get_not_found_page()
 
         # Send response status code
         self.send_response(http_response_code)
 
-        # Send headers
-        self.send_header('Content-type','text/html')
+        # Send extra headers headers
+        if 'secret' in self.path:
+            self.send_header('WWW-Authenticate', 'Basic realm="OpenFDA Private Zone"')
+        elif 'redirect' in self.path:
+            self.send_header('Location', 'http://localhost:8000/')
+
+        # Send the normal headers
+        self.send_header('Content-type', 'text/html')
         self.end_headers()
 
         # Write content as utf-8 data
