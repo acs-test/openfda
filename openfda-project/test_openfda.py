@@ -27,6 +27,9 @@ import requests
 
 from html.parser import HTMLParser
 
+PYTHON_CMD="python3"
+PYTHON_CMD="C:\Python36-32\python.exe"
+
 class OpenFDAHTMLParser(HTMLParser):
 
     def __init__(self):
@@ -61,7 +64,7 @@ class WebServer(threading.Thread):
 
     def run(self):
         # Start the web server in a thread. It will be killed once tests have finished
-        cmd = ['python3', 'server.py']
+        cmd = [PYTHON_CMD, 'server.py']
         proc = subprocess.Popen(cmd, stderr=subprocess.PIPE)
         TestOpenFDA.WEBSERVER_PROC = proc
         outs, errs = proc.communicate()
