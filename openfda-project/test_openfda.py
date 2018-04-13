@@ -18,7 +18,9 @@
 # Authors:
 #     Alvaro del Castillo <acs@bitergia.com>
 
+import os
 import subprocess
+import sys
 import threading
 import time
 import unittest
@@ -27,8 +29,7 @@ import requests
 
 from html.parser import HTMLParser
 
-PYTHON_CMD="python3"
-PYTHON_CMD="C:\Python36-32\python.exe"
+PYTHON_CMD = os.path.abspath(sys.executable)
 
 class OpenFDAHTMLParser(HTMLParser):
 
