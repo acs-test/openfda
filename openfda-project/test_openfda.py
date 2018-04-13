@@ -60,7 +60,7 @@ class WebServer(threading.Thread):
     """ Thread to start the web server """
 
     def run(self):
-        # Start the web server in a thread and kill it after a delay
+        # Start the web server in a thread. It will be killed once tests have finished
         cmd = ['python3', 'server.py']
         proc = subprocess.Popen(cmd, stderr=subprocess.PIPE)
         TestOpenFDA.WEBSERVER_PROC = proc
@@ -75,8 +75,8 @@ class TestOpenFDA(unittest.TestCase):
     WEBSERVER_PROC = None
     PORT_BUSY = False
     TEST_PORT = 8000
-    TEST_DRUG = 'ASPIRIN'
-    TEST_COMPANY = 'ROCHE'
+    TEST_DRUG = 'Aspirin'
+    TEST_COMPANY = 'Bayer'
     TEST_ACTIONS = ['listDrugs', 'searchDrug', 'listCompanies', 'searchCompany', 'listWarnings']
 
     @classmethod
@@ -98,7 +98,7 @@ class TestOpenFDA(unittest.TestCase):
         # print(resp.text)
         parser = OpenFDAHTMLParser()
         parser.feed(resp.text)
-        # Remove listGender that it is not in the basic specification
+        # Remove listWarnings that it is not in the basic specification
         self.TEST_ACTIONS.remove('listWarnings')
         try:
             parser.actions_list.remove('listWarnings')
@@ -154,7 +154,7 @@ class TestOpenFDA(unittest.TestCase):
 
     def test_list_warnings(self):
         url = 'http://localhost:' + str(self.TEST_PORT)
-        url += '/listGender?limit=10'
+        url += '/listWarnings?limit=10'
         resp = requests.get(url)
         # print(resp.text)
         parser = OpenFDAHTMLParser()

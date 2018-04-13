@@ -1,28 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <title>Search Drug</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+	<title>OpenFDA Cool App</title>
+	<style>
+		input {
+			padding: 12px 20px;
+			margin: 8px 0;
+		}
+
+		div {
+			padding: 30px 20px;
+			width: 50%
+		}
+
+		input[type=button],
+		input[type=submit],
+		input[type=reset] {
+			background-color: #4CAF50;
+			border: none;
+			color: white;
+			padding: 16px 32px;
+			text-decoration: none;
+			margin: 4px 2px;
+			cursor: pointer;
+			border-radius: 10px;
+		}
+	</style>
 </head>
+
 <body>
+	<h1>OpenFDA Client</h1>
+	<div id='drug'>
+		<form method="get" action="listDrugs">
+			<input type="submit" value="Drug List: Send to OpenFDA">
+			Limit: <input type="text" name="limit" size=3 value=10>
+		</form>
+		<form method="get" action="searchDrug">
+			Drug name <input type="text" name="active_ingredient">
+            Limit <input type="text" name="limit">
+			<input type="submit" value="Drug Search: Send to OpenFDA">
+		</form>
+	</div>
+	<div id='company'>
+		<form method="get" action="listCompanies">
+			<input type="submit" value="Company List: Send to OpenFDA">
+			Limit: <input type="text" name="limit" size=3 value=10>
+		</form>
+		<form method="get" action="searchCompany">
+			Company name <input type="text" name="company">
+			Limit <input type="text" name="limit">
+			<input type="submit" value="Company Search: Send to OpenFDA">
+		</form>
+		<form method="get" action="listWarnings">
+			<input type="submit" value="Warnings report: Send to OpenFDA">
+			Limit: <input type="text" name="limit" size=3 value=10>
+		</form>
+	</div>
 
-<h1>OpenFDA Final Project</h1>
-
-<a href="listDrugs">List Drugs</a><br>
-<a href="listCompanies">List Companies</a><br>
-<a href="listWarnings">List Warnings</a><br>
-<br>
-<form action="searchDrug">
-    Active Ingredient: <input name="active_ingredient" type="text"><br>
-    Limit: <input name="limit" type="text"><br>
-    <input type="submit">
-</form>
-<br>
-<form action="searchCompany">
-    Company name: <input name="company" type="text"><br>
-    Limit: <input name="limit" type="text"><br>
-    <input type="submit">
-</form>
 
 </body>
+
 </html>

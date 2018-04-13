@@ -67,7 +67,10 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         drugs = self.send_query(query)
 
-        drugs = drugs['results']
+        if 'results' in drugs:
+            drugs = drugs['results']
+        else:
+            drugs = []
 
         return drugs
 
@@ -228,13 +231,13 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             limit = None
             if len(self.path.split("?")) > 1:
                 limit = self.path.split("?")[1].split("=")[1]
-            items = self.list_drugs()
+            items = self.list_drugs(limit)
             http_response = self.build_html_companies_list(items)
         elif 'listWarnings' in self.path:
             limit = None
             if len(self.path.split("?")) > 1:
                 limit = self.path.split("?")[1].split("=")[1]
-            items = self.list_drugs()
+            items = self.list_drugs(limit)
             http_response = self.build_html_warnings_list(items)
         elif 'secret' in self.path:
             http_response_code = 401
