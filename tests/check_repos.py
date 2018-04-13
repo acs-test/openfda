@@ -27,16 +27,56 @@ import argparse
 import json
 import operator
 import os
-import sys
+import subprocess
 
 import requests
 
 
+GITHUB_URL = 'https://github.com'
 GITHUB_REPOS_API = 'https://api.github.com/repos'
 GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
 PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3', 'openfda-4']
+PROJECT_DIR = 'openfda-project'
 STUDENT_RESULTS_FILE = 'report.json'
+
+class Evaluator():
+    """ Evaluator get all practices from GitHub and evaluate them """
+
+    @staticmethod
+    def execute_cmd(cmd, cwd):
+        """ Execute a shell command analyzing the output and errors """
+        print("Executing the command", cmd, os.getcwd())
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        outs, errs = proc.communicate()
+        outs_str = outs.decode("utf8")
+        errs_str = errs.decode("utf8")
+
+        return errs_str, outs_str
+
+    @staticmethod
+    def evalute_students(students_data):
+        """
+        Evaluate the practices for the github logins included in students_data
+        :param students_data: github logins to evaluate
+        :return:
+        """
+
+        for name, gh_login in students_data.items():
+            # Check that the repository exists
+            check_url = "https://api.github.com/repos/%s/%s" % (gh_login, OPENFDA_REPO)
+            res = requests.get(check_url)
+
+            if res.status_code == 200:
+                print("Cloning for %s the repository %s" % (gh_login, OPENFDA_REPO))
+                clone_url = GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO
+                cmd = ['git', 'clone', clone_url, 'repos/openfda-' + gh_login]
+
+                print (Evaluator.execute_cmd(cmd, "."))
+            else:
+                print("Repository not found for", gh_login)
+
+
 
 class Report():
     """ This Report is useful to track the activity of students in GitHub """
@@ -253,6 +293,8 @@ def get_params():
                                      description="Check the repos contents from the students in PNE course")
     parser.add_argument("-t", "--token", required=True, help="GitHub API token")
     parser.add_argument("-s", "--students-data", required=True, help="JSON file with students data")
+    parser.add_argument("-r", "--report", action='store_true', default=True, help="Generate the activity report")
+    parser.add_argument("-e", "--evaluate", action='store_true', help="Generate the scores report")
 
     return parser.parse_args()
 
@@ -271,10 +313,16 @@ if __name__ == '__main__':
 
     args = get_params()
 
-    if os.path.isfile(STUDENT_RESULTS_FILE):
-        print("Using the already generated students results", STUDENT_RESULTS_FILE)
-        with open(STUDENT_RESULTS_FILE) as file_results_data:
-            Report.do_report(students_res=json.load(file_results_data))
+    if args.report and not args.evaluate:
+        print("Generating the activity report")
+        if os.path.isfile(STUDENT_RESULTS_FILE):
+            print("Using the already generated students results", STUDENT_RESULTS_FILE)
+            with open(STUDENT_RESULTS_FILE) as file_results_data:
+                Report.do_report(students_res=json.load(file_results_data))
+        else:
+            with open(args.students_data) as file_student_data:
+                Report.do_report(students_data=json.load(file_student_data))
     else:
+        print("Evaluating the practices")
         with open(args.students_data) as file_student_data:
-            Report.do_report(students_data=json.load(file_student_data))
+            Evaluator.evalute_students(json.load(file_student_data))
