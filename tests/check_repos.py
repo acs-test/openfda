@@ -28,6 +28,9 @@ import json
 import operator
 import os
 import subprocess
+import sys
+
+from shutil import copyfile
 
 import requests
 
@@ -36,17 +39,50 @@ GITHUB_URL = 'https://github.com'
 GITHUB_REPOS_API = 'https://api.github.com/repos'
 GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
+PROJECT_DIR = "openfda-project"  # Directory with the final project
 PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3', 'openfda-4']
+TEST_SCRIPT = 'test_openfda.py'
 PROJECT_DIR = 'openfda-project'
 STUDENT_RESULTS_FILE = 'report.json'
+PYTHON_CMD = os.path.abspath(sys.executable)
+
+
+def send_github(url, headers=None):
+    headers = {'Authorization': 'token ' + args.token}
+    res = requests.get(url, headers=headers)
+    try:
+        res.raise_for_status()
+    except requests.exceptions.HTTPError:
+        print("Failed to get results from", url)
+        print("Can not get repository data (is empty?) from", url)
+    return res
+
 
 class Evaluator():
     """ Evaluator get all practices from GitHub and evaluate them """
 
     @staticmethod
+    def test_repo(repo_dir):
+        """
+        Execute the tests for a repository
+
+        :param repo_dir: directory with the repository to be tested
+        :return:
+        """
+
+        project_dir = repo_dir + "/" + PROJECT_DIR
+        # First step is to copy the test script inside the repository
+        copyfile("../openfda-project/" + TEST_SCRIPT, project_dir + "/" + TEST_SCRIPT)
+
+        # And now we need to execute the tests
+        cmd = [PYTHON_CMD, './' + TEST_SCRIPT]
+        print(Evaluator.execute_cmd(cmd, project_dir))
+
+
+    @staticmethod
     def execute_cmd(cmd, cwd):
         """ Execute a shell command analyzing the output and errors """
-        print("Executing the command", cmd, os.getcwd())
+        print("Executing the command", cmd, os.getcwd(), cwd)
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         outs, errs = proc.communicate()
         outs_str = outs.decode("utf8")
@@ -62,19 +98,39 @@ class Evaluator():
         :return:
         """
 
+
         for name, gh_login in students_data.items():
             # Check that the repository exists
             check_url = "https://api.github.com/repos/%s/%s" % (gh_login, OPENFDA_REPO)
-            res = requests.get(check_url)
+            res = send_github(check_url)
+            # res = requests.get(check_url)
 
             if res.status_code == 200:
-                print("Cloning for %s the repository %s" % (gh_login, OPENFDA_REPO))
-                clone_url = GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO
-                cmd = ['git', 'clone', clone_url, 'repos/openfda-' + gh_login]
-
-                print (Evaluator.execute_cmd(cmd, "."))
+                if not os.path.isdir('repos/openfda-' + gh_login):
+                    # If the repository is not cloned yet, do it!
+                    print("Cloning for %s the repository %s" % (gh_login, OPENFDA_REPO))
+                    clone_url = GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO
+                    cmd = ['git', 'clone', clone_url, 'repos/openfda-' + gh_login]
+                    print (Evaluator.execute_cmd(cmd, "."))
+                else:
+                    # If it already exists, update it
+                    print("Repository already cloned: %s. Updating it." % ('repos/openfda-' + gh_login))
+                    cmd = ['git', 'pull']
+                    print(Evaluator.execute_cmd(cmd, 'repos/openfda-' + gh_login))
+                # Check that the final project dir exists
+                final_project_dir = 'repos/openfda-' + gh_login + "/" + PROJECT_DIR
+                if not os.path.isdir(final_project_dir):
+                    print("Final project does not exists", final_project_dir)
+                else:
+                    # Time to execute the tests
+                    Evaluator.test_repo("repos/openfda-" + gh_login)
+            elif res.status_code == 403:
+                print("Review the API token, access is forbidden")
+                print(res.text)
+                sys.exit(1)
+                # res.raise_for_status()
             else:
-                print("Repository not found for", gh_login)
+                print("Repository not found for", gh_login, GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO)
 
 
 
@@ -297,16 +353,6 @@ def get_params():
     parser.add_argument("-e", "--evaluate", action='store_true', help="Generate the scores report")
 
     return parser.parse_args()
-
-
-def send_github(url, headers=None):
-    headers = {'Authorization': 'token ' + args.token}
-    res = requests.get(url, headers=headers)
-    try:
-        res.raise_for_status()
-    except requests.exceptions.HTTPError:
-        print("Can not get repository data (is empty?) from", url)
-    return res
 
 
 if __name__ == '__main__':
