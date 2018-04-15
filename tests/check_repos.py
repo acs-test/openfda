@@ -44,6 +44,7 @@ PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3', 'openfda-4']
 TEST_SCRIPT = 'test_openfda.py'
 PROJECT_DIR = 'openfda-project'
 STUDENT_RESULTS_FILE = 'report.json'
+STUDENT_SCORES_FILE = 'scores.json'
 PYTHON_CMD = os.path.abspath(sys.executable)
 
 
@@ -62,6 +63,53 @@ class Evaluator():
     """ Evaluator get all practices from GitHub and evaluate them """
 
     @staticmethod
+    def get_score(test_results):
+        """ Get the score from the results of the tests:
+            scores: 5.6 basic, 3 additional
+        """
+
+        # Sample test_resuts format
+
+        # Ran 11 tests in 7.064s
+        #
+        # FAILED (errors=2 failures=4)
+
+
+        score = 0
+        nerrors = 0
+        nfailures = 0
+
+        # If there are errors, the score is always 0
+        error_tests = test_results.split("errors=")
+        if len(error_tests) > 1:
+            nerrors = int(error_tests[1].split()[0].split(")")[0])
+        if nerrors:
+            print("Errors during the testing: %i" % nerrors)
+            basic_score = 0
+            additional_score = 0
+            return (basic_score, additional_score)
+
+
+        basic_score = 5.5  # 0.5 files
+        # Pending checking score for refactoring
+        additional_score = 2.2  # 0.3 for git, checked outside, 0.5 classes outside
+        additional_tests = 5
+        total_tests = test_results.split("Ran ")[1].split(" ")[0]
+        failed_tests = test_results.split("failures=")
+        if len(failed_tests) > 1:
+            failed = int(failed_tests[1].split(")")[0])
+            if failed > 5:
+                print("Basic tests failed %i" % failed)
+                basic_score = 0
+            else:
+                additional_score = additional_score * (1 - (failed / additional_tests))
+                print("Additional tests failed %i, score %f" % (failed, basic_score + additional_score))
+        else:
+            print("No fails in tests, score %f" % basic_score + additional_score)
+
+        return (basic_score, additional_score)
+
+    @staticmethod
     def test_repo(repo_dir):
         """
         Execute the tests for a repository
@@ -76,7 +124,9 @@ class Evaluator():
 
         # And now we need to execute the tests
         cmd = [PYTHON_CMD, './' + TEST_SCRIPT]
-        print(Evaluator.execute_cmd(cmd, project_dir))
+        errs_str, outs_str = Evaluator.execute_cmd(cmd, project_dir)
+        (basic_score, additional_score) = Evaluator.get_score(errs_str)
+        return basic_score + additional_score
 
 
     @staticmethod
@@ -95,11 +145,23 @@ class Evaluator():
         """
         Evaluate the practices for the github logins included in students_data
         :param students_data: github logins to evaluate
-        :return:
+        :return: a dict with gh_login as name and score as value
         """
+
+        gh_login_scores = {}
+
+        # Practices which server does not free the 8000 port
+        blacklist_gh_login = ['Lasonata']
 
 
         for name, gh_login in students_data.items():
+            score = 0
+
+            if gh_login in blacklist_gh_login:
+                print("%s is in blacklist")
+                gh_login_scores[gh_login] = score
+                continue
+
             # Check that the repository exists
             check_url = "https://api.github.com/repos/%s/%s" % (gh_login, OPENFDA_REPO)
             res = send_github(check_url)
@@ -123,14 +185,18 @@ class Evaluator():
                     print("Final project does not exists", final_project_dir)
                 else:
                     # Time to execute the tests
-                    Evaluator.test_repo("repos/openfda-" + gh_login)
+                    score = Evaluator.test_repo("repos/openfda-" + gh_login)
             elif res.status_code == 403:
                 print("Review the API token, access is forbidden")
                 print(res.text)
                 sys.exit(1)
-                # res.raise_for_status()
+                res.raise_for_status()
             else:
                 print("Repository not found for", gh_login, GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO)
+
+            gh_login_scores[gh_login] = score
+
+        return gh_login_scores
 
 
 
@@ -371,4 +437,7 @@ if __name__ == '__main__':
     else:
         print("Evaluating the practices")
         with open(args.students_data) as file_student_data:
-            Evaluator.evalute_students(json.load(file_student_data))
+            logins_scores = Evaluator.evalute_students(json.load(file_student_data))
+            with open(STUDENT_SCORES_FILE, "w") as file_scores_data:
+                json.dump(logins_scores, file_scores_data, indent=True, sort_keys=True)
+
