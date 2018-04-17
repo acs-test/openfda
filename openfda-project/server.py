@@ -45,7 +45,12 @@ class OpenFDAClient():
 
         res = json.loads(res_raw)
 
-        return res
+        if 'results' in res:
+            items = res['results']
+        else:
+            items = []
+
+        return items
 
     def search_drugs(self, active_ingredient, limit=10):
         """
@@ -84,8 +89,6 @@ class OpenFDAClient():
 
         drugs = self.send_query(query)
 
-        drugs = drugs['results']
-
         return drugs
 
     def search_companies(self, company_name, limit=10):
@@ -102,8 +105,6 @@ class OpenFDAClient():
             query += "&limit=" + str(limit)
 
         drugs = self.send_query(query)
-
-        drugs = drugs['results']
 
         return drugs
 
@@ -184,8 +185,10 @@ class OpenFDAParser():
         warnings = []
 
         for drug in drugs:
-            warnings.append(drug['warnings'][0])
-
+            if 'warnings' in drug and drug['warnings']:
+                warnings.append(drug['warnings'][0])
+            else:
+                warnings.append("None")
         return warnings
 
 
