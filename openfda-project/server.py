@@ -11,8 +11,8 @@ PORT = 8000
 
 OPENFDA_BASIC = False
 
-# HTTPRequestHandler class
-class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+
+class OpenFDAClient():
 
     def send_query(self, query):
         """
@@ -45,9 +45,12 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         res = json.loads(res_raw)
 
-        return res
+        if 'results' in res:
+            items = res['results']
+        else:
+            items = []
 
-
+        return items
 
     def search_drugs(self, active_ingredient, limit=10):
         """
@@ -86,8 +89,6 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         drugs = self.send_query(query)
 
-        drugs = drugs['results']
-
         return drugs
 
     def search_companies(self, company_name, limit=10):
@@ -105,64 +106,22 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         drugs = self.send_query(query)
 
-        drugs = drugs['results']
-
         return drugs
 
-    def build_html_drugs_list(self, drug_items):
-        """
-        Creates a HTML list string with the drug_items
 
-        :param drug_items: list with the drug items
+class OpenFDAHTML():
+
+    def build_html_list(self, items):
+        """
+        Creates a HTML list string with the items
+
+        :param items: list with the items to be included in the HTML list
         :return: string with the HTML list
         """
 
         html_list = "<ul>"
-        for drug in drug_items:
-            html_list += "<li>" + drug['id']
-            if 'active_ingredient' in drug:
-                html_list += " " + drug['active_ingredient'][0]
-            if 'openfda' in drug and 'manufacturer_name' in drug['openfda']:
-                html_list += " " + drug['openfda']['manufacturer_name'][0]
-            html_list += "</li>"
-        html_list += "</ul>"
-
-        return html_list
-
-    def build_html_companies_list(self, drug_items):
-        """
-        Creates a HTML list string with the companies in the drug_items
-
-        :param drug_items: list with the drug items
-        :return: string with the HTML list
-        """
-
-        html_list = "<ul>"
-        for drug in drug_items:
-            html_list += "<li>"
-            if 'openfda' in drug and 'manufacturer_name' in drug['openfda']:
-                html_list += " " + drug['openfda']['manufacturer_name'][0]
-            else:
-                html_list += "Unknown"
-            html_list += "</li>"
-        html_list += "</ul>"
-
-        return html_list
-
-    def build_html_warnings_list(self, drug_items):
-        """
-        Creates a HTML list string with the warnings in the drug_items
-
-        :param drug_items: list with the drug items
-        :return: string with the HTML list
-        """
-
-        html_list = "<ul>"
-        for drug in drug_items:
-            if 'warnings' in drug:
-                html_list += "<li>" + drug['warnings'][0]+ "</li>"
-            else:
-                html_list += "<li>None</li>"
+        for item in items:
+            html_list += "<li>" + item + "</li>"
         html_list += "</ul>"
 
         return html_list
@@ -174,6 +133,67 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
         return html
 
+class OpenFDAParser():
+
+    def parse_companies(self, drugs):
+        """
+        Given a OpenFDA result, extract the drugs data
+
+        :param drugs: result form a call to OpenFDA drugs API
+        :return: list with companies info
+        """
+
+        companies = []
+        for drug in drugs:
+            if 'openfda' in drug and 'manufacturer_name' in drug['openfda']:
+                companies.append(drug['openfda']['manufacturer_name'][0])
+            else:
+                companies.append("Unknown")
+
+            companies.append(drug['id'])
+
+        return companies
+
+    def parse_drugs(self, drugs):
+        """
+
+        :param drugs: result form a call to OpenFDA drugs API
+        :return: list with drugs info
+        """
+
+        drugs_labels = []
+
+        for drug in drugs:
+            drug_label = drug['id']
+            if 'active_ingredient' in drug:
+                drug_label += " " + drug['active_ingredient'][0]
+            if 'openfda' in drug and 'manufacturer_name' in drug['openfda']:
+                drug_label += " " + drug['openfda']['manufacturer_name'][0]
+
+            drugs_labels.append(drug_label)
+
+        return drugs_labels
+
+    def parse_warnings(self, drugs):
+        """
+        Given a OpenFDA result, extract the warnings data
+
+        :param drugs: result form a call to OpenFDA drugs API
+        :return: list with warnings info
+        """
+
+        warnings = []
+
+        for drug in drugs:
+            if 'warnings' in drug and drug['warnings']:
+                warnings.append(drug['warnings'][0])
+            else:
+                warnings.append("None")
+        return warnings
+
+
+# HTTPRequestHandler class
+class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     # GET
     def do_GET(self):
@@ -186,6 +206,10 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         listCompanies
         listWarnings
         """
+
+        client = OpenFDAClient()
+        html_vis = OpenFDAHTML()
+        parser = OpenFDAParser()
 
         http_response_code = 200
         http_response = "<h1>Not supported</h1>"
@@ -206,14 +230,14 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                     active_ingredient = param_value
                 elif param_name == 'limit':
                     limit = param_value
-            items = self.search_drugs(active_ingredient, limit)
-            http_response = self.build_html_drugs_list(items)
+            items = client.search_drugs(active_ingredient, limit)
+            http_response = html_vis.build_html_list(parser.parse_drugs(items))
         elif 'listDrugs' in self.path:
             limit = None
             if len(self.path.split("?")) > 1:
                 limit = self.path.split("?")[1].split("=")[1]
-            items = self.list_drugs(limit)
-            http_response = self.build_html_drugs_list(items)
+            items = client.list_drugs(limit)
+            http_response = html_vis.build_html_list(parser.parse_drugs(items))
         elif 'searchCompany' in self.path:
             company_name = None
             limit = 10
@@ -225,20 +249,20 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
                     company_name = param_value
                 elif param_name == 'limit':
                     limit = param_value
-            items = self.search_companies(company_name, limit)
-            http_response = self.build_html_drugs_list(items)
+            items = client.search_companies(company_name, limit)
+            http_response = html_vis.build_html_list(parser.parse_companies(items))
         elif 'listCompanies' in self.path:
             limit = None
             if len(self.path.split("?")) > 1:
                 limit = self.path.split("?")[1].split("=")[1]
-            items = self.list_drugs(limit)
-            http_response = self.build_html_companies_list(items)
+            items = client.list_drugs(limit)
+            http_response = html_vis.build_html_list(parser.parse_companies(items))
         elif 'listWarnings' in self.path:
             limit = None
             if len(self.path.split("?")) > 1:
                 limit = self.path.split("?")[1].split("=")[1]
-            items = self.list_drugs(limit)
-            http_response = self.build_html_warnings_list(items)
+            items = client.list_drugs(limit)
+            http_response = html_vis.build_html_list(parser.parse_warnings(items))
         elif 'secret' in self.path:
             http_response_code = 401
         elif 'redirect' in self.path:
@@ -247,7 +271,7 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
             http_response_code = 404
             if not OPENFDA_BASIC:
                 url_found = False
-                http_response = self.get_not_found_page()
+                http_response = html_vis.get_not_found_page()
 
         # Send response status code
         self.send_response(http_response_code)
@@ -267,7 +291,6 @@ class testHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         return
 
 
-Handler = http.server.SimpleHTTPRequestHandler
 Handler = testHTTPRequestHandler
 
 httpd = socketserver.TCPServer(("", PORT), Handler)
