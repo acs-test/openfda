@@ -70,11 +70,6 @@ class OpenFDAClient():
 
         drugs = self.send_query(query)
 
-        if 'results' in drugs:
-            drugs = drugs['results']
-        else:
-            drugs = []
-
         return drugs
 
     def list_drugs(self, limit=10):
@@ -146,11 +141,9 @@ class OpenFDAParser():
         companies = []
         for drug in drugs:
             if 'openfda' in drug and 'manufacturer_name' in drug['openfda']:
-                companies.append(drug['openfda']['manufacturer_name'][0])
+                companies.append(drug['id'] + " "+ drug['openfda']['manufacturer_name'][0])
             else:
                 companies.append("Unknown")
-
-            companies.append(drug['id'])
 
         return companies
 
