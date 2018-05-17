@@ -30,6 +30,7 @@ import os
 import subprocess
 import sys
 
+from collections import OrderedDict
 from shutil import copyfile
 
 import requests
@@ -63,49 +64,75 @@ class Evaluator():
     """ Evaluator get all practices from GitHub and evaluate them """
 
     @staticmethod
+    def get_classes_score(project_dir):
+        # 0.5 max score: 0.25 number of clasess, 0.25 classes name
+
+        score_classes = 0
+
+        cnames = ['OpenFDAClient', 'OpenFDAHTML', 'OpenFDAParser']
+        server_file = os.path.join(project_dir, "server.py")
+        classes = []
+        with open(server_file) as sfile:
+            for line in sfile.readlines():
+                for cname in cnames:
+                    if 'class ' + cname in line:
+                        classes.append(cname)
+
+        if len(classes) == 3:
+            score_classes = 1
+
+        print("Total score for classes: %0.2f" % score_classes)
+
+        return score_classes
+
+
+    @staticmethod
     def get_score(test_results):
         """ Get the score from the results of the tests:
-            scores: 5.6 basic, 3 additional
+            scores: 5 basic, 4 additional
         """
 
         # Sample test_resuts format
 
         # Ran 11 tests in 7.064s
         #
-        # FAILED (errors=2 failures=4)
+        # FAILED (failures=3, errors=2)
 
 
         score = 0
         nerrors = 0
         nfailures = 0
 
-        # If there are errors, the score is always 0
-        error_tests = test_results.split("errors=")
-        if len(error_tests) > 1:
-            nerrors = int(error_tests[1].split()[0].split(")")[0])
-        if nerrors:
-            print("Errors during the testing: %i" % nerrors)
-            basic_score = 0
-            additional_score = 0
-            return (basic_score, additional_score)
-
-
-        basic_score = 5.5  # 0.5 files
+        basic_score = 5
         # Pending checking score for refactoring
-        additional_score = 2.2  # 0.3 for git, checked outside, 0.5 classes outside
+        additional_score = 3   # Max 8 if all is working
         additional_tests = 5
         total_tests = test_results.split("Ran ")[1].split(" ")[0]
+        # errors are the same than failures
+        error_tests = test_results.split("errors=")
         failed_tests = test_results.split("failures=")
-        if len(failed_tests) > 1:
-            failed = int(failed_tests[1].split(")")[0])
-            if failed > 5:
-                print("Basic tests failed %i" % failed)
-                basic_score = 0
+        errors = 0
+        failed = 0
+        if len(failed_tests) > 1 or len(error_tests) > 1:
+            if len(error_tests) == 1:
+                # There are no errors
+                failed = int(failed_tests[1].split(")")[0])
+                # There are failures
+            elif len(failed_tests) == 1:
+                errors = int(error_tests[1].split(")")[0])
             else:
-                additional_score = additional_score * (1 - (failed / additional_tests))
-                print("Additional tests failed %i, score %f" % (failed, basic_score + additional_score))
+                failed = int(failed_tests[1].split(",")[0])
+                errors = int(error_tests[1].split(")")[0])
+            total_ko = failed + errors
+            if total_ko > 5:
+                print("Basic tests failed %i" % total_ko)
+                basic_score = 0
+                additional_score = 0
+            else:
+                additional_score = additional_score * (1 - (total_ko / additional_tests))
+                print("Additional tests failed %i, score %f" % (total_ko, basic_score + additional_score))
         else:
-            print("No fails in tests, score %f" % basic_score + additional_score)
+            print("No fails in tests, score %f" % (basic_score + additional_score))
 
         return (basic_score, additional_score)
 
@@ -122,11 +149,19 @@ class Evaluator():
         # First step is to copy the test script inside the repository
         copyfile("../openfda-project/" + TEST_SCRIPT, project_dir + "/" + TEST_SCRIPT)
 
+        # Time to get the score related to classes refactoring
+        classes_score = Evaluator.get_classes_score(project_dir)
+
         # And now we need to execute the tests
         cmd = [PYTHON_CMD, './' + TEST_SCRIPT]
         errs_str, outs_str = Evaluator.execute_cmd(cmd, project_dir)
         (basic_score, additional_score) = Evaluator.get_score(errs_str)
-        return basic_score + additional_score
+        scores = {"basic": basic_score,
+                  "additional": additional_score,
+                  "classes": classes_score,
+                  "total": basic_score + additional_score + classes_score}
+        print("Final score for %s: %f" % (project_dir, scores['total']))
+        return scores
 
 
     @staticmethod
@@ -140,8 +175,9 @@ class Evaluator():
 
         return errs_str, outs_str
 
+
     @staticmethod
-    def evalute_students(students_data):
+    def evaluate_students(students_data):
         """
         Evaluate the practices for the github logins included in students_data
         :param students_data: github logins to evaluate
@@ -149,16 +185,21 @@ class Evaluator():
         """
 
         gh_login_scores = {}
+        # To specify logins to avoid or to analyze: not supported in command line yet
+        blacklist_gh_login = []
+        whitelist_gh_login = []
 
-        # Practices which server does not free the 8000 port
-        blacklist_gh_login = ['Lasonata']
+        # blacklist_gh_login = ["kcoutinho"]
+        # whitelist_gh_login = ["epolancosaiz", "mariaolleros"]
 
+        for name, gh_login in OrderedDict(sorted(students_data.items())).items():
+            scores = {"total": 0}
 
-        for name, gh_login in students_data.items():
-            score = 0
+            if whitelist_gh_login and gh_login not in whitelist_gh_login:
+                continue
 
             if gh_login in blacklist_gh_login:
-                print("%s is in blacklist")
+                print("%s is in blacklist" % gh_login)
                 gh_login_scores[gh_login] = score
                 continue
 
@@ -185,7 +226,7 @@ class Evaluator():
                     print("Final project does not exists", final_project_dir)
                 else:
                     # Time to execute the tests
-                    score = Evaluator.test_repo("repos/openfda-" + gh_login)
+                    scores = Evaluator.test_repo("repos/openfda-" + gh_login)
             elif res.status_code == 403:
                 print("Review the API token, access is forbidden")
                 print(res.text)
@@ -194,9 +235,9 @@ class Evaluator():
             else:
                 print("Repository not found for", gh_login, GITHUB_URL + "/" + gh_login + "/" + OPENFDA_REPO)
 
-            gh_login_scores[gh_login] = score
+            gh_login_scores[gh_login] = scores
 
-        return gh_login_scores
+        return OrderedDict(sorted(gh_login_scores.items()))
 
 
 
@@ -410,6 +451,29 @@ class Report():
         Report.show()
 
 
+    @staticmethod
+    def do_scores_report(scores):
+        """
+        Show a report with the scores
+        :param scores: a dict with students logins as keys and the scores as values
+        :return:
+        """
+
+        not_approved = []
+
+        for login in OrderedDict(sorted(scores.items())):
+            if not isinstance(scores[login], dict):
+                print("Format error for %s: %s" % (login, scores[login]))
+                not_approved.append(login)
+                continue
+            print("Score for %s: %f" % (login, scores[login]['total']))
+            if scores[login]['total'] < 5:
+                not_approved.append(login)
+
+        print("Total number of scores: %i" % len(scores.items()))
+        print("Total approved/not_approved: %i/%i"  % (len(scores.items()) - len(not_approved), len(not_approved)))
+
+
 def get_params():
     parser = argparse.ArgumentParser(usage="usage:check_repos.py [options]",
                                      description="Check the repos contents from the students in PNE course")
@@ -436,8 +500,14 @@ if __name__ == '__main__':
                 Report.do_report(students_data=json.load(file_student_data))
     else:
         print("Evaluating the practices")
-        with open(args.students_data) as file_student_data:
-            logins_scores = Evaluator.evalute_students(json.load(file_student_data))
-            with open(STUDENT_SCORES_FILE, "w") as file_scores_data:
-                json.dump(logins_scores, file_scores_data, indent=True, sort_keys=True)
+        if os.path.isfile(STUDENT_SCORES_FILE):
+            print("Using the already generated students results", STUDENT_SCORES_FILE)
+        else:
+            with open(args.students_data) as file_student_data:
+                logins_scores = Evaluator.evaluate_students(json.load(file_student_data))
+                with open(STUDENT_SCORES_FILE, "w") as file_scores_data:
+                    json.dump(logins_scores, file_scores_data, indent=True, sort_keys=True)
 
+        # Show the report in both cases
+        with open(STUDENT_SCORES_FILE) as file_scores_data:
+            Report.do_scores_report(scores=json.load(file_scores_data))
