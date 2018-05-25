@@ -40,6 +40,7 @@ GITHUB_URL = 'https://github.com'
 GITHUB_REPOS_API = 'https://api.github.com/repos'
 GITHUB_USERS_API = 'https://api.github.com/users'
 OPENFDA_REPO = "openfda"  # Name of the repository with the practices
+GENIUS_REPO = "genius"
 PROJECT_DIR = "openfda-project"  # Directory with the final project
 PRACTICES_DIRS = ['openfda-1', 'openfda-2', 'openfda-3', 'openfda-4']
 TEST_SCRIPT = 'test_openfda.py'
@@ -177,10 +178,11 @@ class Evaluator():
 
 
     @staticmethod
-    def evaluate_students(students_data):
+    def evaluate_students(students_data, no_update=False):
         """
         Evaluate the practices for the github logins included in students_data
         :param students_data: github logins to evaluate
+        :param no_update: don't update the practices
         :return: a dict with gh_login as name and score as value
         """
 
@@ -216,10 +218,13 @@ class Evaluator():
                     cmd = ['git', 'clone', clone_url, 'repos/openfda-' + gh_login]
                     print (Evaluator.execute_cmd(cmd, "."))
                 else:
-                    # If it already exists, update it
-                    print("Repository already cloned: %s. Updating it." % ('repos/openfda-' + gh_login))
-                    cmd = ['git', 'pull']
-                    print(Evaluator.execute_cmd(cmd, 'repos/openfda-' + gh_login))
+                    if not no_update:
+                        # If it already exists, update it
+                        print("Repository already cloned: %s. Updating it." % ('repos/openfda-' + gh_login))
+                        cmd = ['git', 'pull']
+                        print(Evaluator.execute_cmd(cmd, 'repos/openfda-' + gh_login))
+                    else:
+                        print("Not updating repository already cloned: %s." % ('repos/openfda-' + gh_login))
                 # Check that the final project dir exists
                 final_project_dir = 'repos/openfda-' + gh_login + "/" + PROJECT_DIR
                 if not os.path.isdir(final_project_dir):
@@ -239,6 +244,48 @@ class Evaluator():
 
         return OrderedDict(sorted(gh_login_scores.items()))
 
+    @staticmethod
+    def clone_genius(students_data, no_update=False):
+        """
+        Try to clone the genius practice
+        :param students_data: github logins to evaluate
+        :param no_update: don't update the practices
+        :return: a list with gh_logins with genius practice
+        """
+
+        genius_logins = []
+
+        for name, gh_login in OrderedDict(sorted(students_data.items())).items():
+            # Check that the repository exists
+            check_url = "https://api.github.com/repos/%s/%s" % (gh_login, GENIUS_REPO)
+            res = send_github(check_url)
+            # res = requests.get(check_url)
+
+            if res.status_code == 200:
+                if not os.path.isdir('repos/genius-' + gh_login):
+                    # If the repository is not cloned yet, do it!
+                    print("Cloning for %s the repository %s" % (gh_login, GENIUS_REPO))
+                    clone_url = GITHUB_URL + "/" + gh_login + "/" + GENIUS_REPO
+                    cmd = ['git', 'clone', clone_url, 'repos/genius-' + gh_login]
+                    print(Evaluator.execute_cmd(cmd, '.'))
+                else:
+                    if not no_update:
+                        # If it already exists, update it
+                        print("Repository already cloned: %s. Updating it." % ('repos/genius-' + gh_login))
+                        cmd = ['git', 'pull']
+                        print(Evaluator.execute_cmd(cmd, 'repos/genius-' + gh_login))
+                    else:
+                        print("Not updating repository already cloned: %s." % ('repos/genius-' + gh_login))
+                genius_logins.append(gh_login)
+            elif res.status_code == 403:
+                print("Review the API token, access is forbidden")
+                print(res.text)
+                sys.exit(1)
+                res.raise_for_status()
+            else:
+                print("Repository not found for", gh_login, GITHUB_URL + "/" + gh_login + "/" + GENIUS_REPO)
+
+        return sorted(genius_logins)
 
 
 class Report():
@@ -452,26 +499,44 @@ class Report():
 
 
     @staticmethod
-    def do_scores_report(scores):
+    def do_scores_report(scores, students_data=None):
         """
         Show a report with the scores
         :param scores: a dict with students logins as keys and the scores as values
+        :param students_data: an optional dict with the mapping from login to name of the students
         :return:
         """
 
         not_approved = []
+        login_names = {}
+        scores_names = {}
 
-        for login in OrderedDict(sorted(scores.items())):
-            if not isinstance(scores[login], dict):
-                print("Format error for %s: %s" % (login, scores[login]))
-                not_approved.append(login)
-                continue
-            print("Score for %s: %f" % (login, scores[login]['total']))
-            if scores[login]['total'] < 5:
-                not_approved.append(login)
+
+
+        if students_data:
+            with open(students_data) as file_student_data:
+                names_logins = json.load(file_student_data)
+                # We need the reverse dict from names_logins
+                login_names = {login:name for name, login in names_logins.items()}
+                # Let's build a new dict with scores using names
+                for login in scores:
+                    print("Score for %s (%s): %f" % (login_names[login], login, scores[login]['total']))
+                    scores_names[login_names[login]] = scores[login]['total']
+                    if scores[login]['total'] < 5:
+                        not_approved.append(login)
+
+        else:
+            for login in OrderedDict(sorted(scores.items())):
+                if not isinstance(scores[login], dict):
+                    print("Format error for %s: %s" % (login, scores[login]))
+                    not_approved.append(login)
+                    continue
+                print("Score for %s: %f" % (login, scores[login]['total']))
+                if scores[login]['total'] < 5:
+                    not_approved.append(login)
 
         print("Total number of scores: %i" % len(scores.items()))
-        print("Total approved/not_approved: %i/%i"  % (len(scores.items()) - len(not_approved), len(not_approved)))
+        print("Total approved/not_approved: %i/%i" % (len(scores.items()) - len(not_approved), len(not_approved)))
 
 
 def get_params():
@@ -481,6 +546,8 @@ def get_params():
     parser.add_argument("-s", "--students-data", required=True, help="JSON file with students data")
     parser.add_argument("-r", "--report", action='store_true', default=True, help="Generate the activity report")
     parser.add_argument("-e", "--evaluate", action='store_true', help="Generate the scores report")
+    parser.add_argument("--no-update", action='store_true', help="Generate the scores report")
+    parser.add_argument("--genius", action='store_true', help="Clone the genius projects")
 
     return parser.parse_args()
 
@@ -498,16 +565,21 @@ if __name__ == '__main__':
         else:
             with open(args.students_data) as file_student_data:
                 Report.do_report(students_data=json.load(file_student_data))
+    elif args.genius:
+        print("Getting the genius projects")
+        with open(args.students_data) as file_student_data:
+            genius_logins = Evaluator.clone_genius(json.load(file_student_data), args.no_update)
+            print("Students with genius: ", genius_logins)
     else:
         print("Evaluating the practices")
         if os.path.isfile(STUDENT_SCORES_FILE):
             print("Using the already generated students results", STUDENT_SCORES_FILE)
         else:
             with open(args.students_data) as file_student_data:
-                logins_scores = Evaluator.evaluate_students(json.load(file_student_data))
+                logins_scores = Evaluator.evaluate_students(json.load(file_student_data), args.no_update)
                 with open(STUDENT_SCORES_FILE, "w") as file_scores_data:
                     json.dump(logins_scores, file_scores_data, indent=True, sort_keys=True)
 
         # Show the report in both cases
         with open(STUDENT_SCORES_FILE) as file_scores_data:
-            Report.do_scores_report(scores=json.load(file_scores_data))
+            Report.do_scores_report(scores=json.load(file_scores_data), students_data=args.students_data)
